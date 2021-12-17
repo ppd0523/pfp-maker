@@ -1,0 +1,26 @@
+{
+    "name": "",
+    "symbol": "",
+    "description": "",
+    "attributes": [],
+    "collection": {
+        "name": "",
+        "family": "",
+    },
+    "properties":{
+        "files": [
+            {
+                "uri": "",
+                "type": "image/png",
+            }
+        ],
+        "category": "image",
+        "creators": [
+            {
+                "address": "",
+                "verified": false,
+                "share": ""
+            }
+        ]
+    }
+}
