@@ -8,8 +8,7 @@ import tkinter.font as tkFont
 from tkinter import ttk
 from PIL import Image, ImageTk
 from collections import defaultdict, namedtuple
-from functools import partial, reduce
-import itertools
+from functools import partial
 
 
 Product = None
@@ -142,18 +141,8 @@ def on_make(_root):
     global attribute_dict
     global Product
 
-    max_product = 1
-    for values in attribute_dict.values():
-        max_product *= len(values)
-
     products = []
     sampling_dict = defaultdict(list)
-
-    if max_product <= image_number:
-        a = list(attribute_dict.values())
-        b = list(itertools.product(a))
-
-    print(len(products))
 
     for trait, values in attribute_dict.items():
         _, weights, _ = list(zip(*values))
@@ -166,11 +155,7 @@ def on_make(_root):
     print(len(products))
     print(len(set(products)))
 
-
-    # attribute_dict.values() : all attribute
-    # [0] : The first trait
-    # [0] : The first attribute of the first trait
-    # [2] : resource
+    ## products는 완성품 배열
 
     sample_path = list(attribute_dict.values())[0][0][2]
     sample_img = Image.open(sample_path)
@@ -210,7 +195,9 @@ if __name__ == '__main__':
     root.geometry('1280x720+100+100')
 
     style = ttk.Style(root)
-    style.theme_use('aqua')
+    # windows : ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative')
+    # osx :
+    style.theme_use('alt')
     ttk.Style().configure('Font.TLabelframe', font="50")
 
     # Frame Option

@@ -1,19 +1,7 @@
-from collections import namedtuple
-import json
+from itertools import product
 
-Point = namedtuple('Point', ('x', 'y'))
+d = [('a', 'b', 'c'), (1, 2, 3), ('aa', 'bb', 'cc')]
 
-p1 = Point(1, 2)
-p2 = Point(1, 2)
-p3 = Point(1, 3)
-print(p1)
-print(p2)
+p = product(*d)
 
-print(set([p1, p2, p3]))
-
-import re
-
-p = re.compile(r'.png')
-
-m = p.sub('', 'abc.png')
-print(m)
+print(list(p))
