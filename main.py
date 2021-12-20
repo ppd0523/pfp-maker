@@ -1,7 +1,12 @@
-import os
-import re
-import json
-import random
+import os, sys, platform
+
+if getattr(sys, 'frozen', False):
+    _path = sys.excutable
+else:
+    _path = __file__
+
+os.chdir(os.path.dirname(os.path.abspath(_path)))
+import re, json, random
 from datetime import datetime
 import tkinter as tk
 from widget import EntryWithPlaceholder, ScrolledTextWithPlaceholder
@@ -9,7 +14,6 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 from collections import defaultdict, namedtuple
 from functools import partial
-
 
 Product = None
 Part = namedtuple('Part', ('trait_value', 'weight', 'path'))
@@ -137,7 +141,7 @@ def on_make(ctx):
         temp = {trait: values[i] for trait, values in sampling_dict.items()}
         products.append(Product(**temp))
 
-    print('before: ',len(products))
+    print('before: ', len(products))
     products = list(set(products))
     print('after: ', len(products))
     ## products는 완성품 배열
@@ -166,7 +170,8 @@ def on_make(ctx):
             )
         base_tkimg = ImageTk.PhotoImage(base_img)
         _canvas = ctx.master.children['product_canvas']
-        tagOrId = _canvas.create_image(_canvas.winfo_width()//2, _canvas.winfo_height()//2, image=base_tkimg, tags='asdf')
+        tagOrId = _canvas.create_image(_canvas.winfo_width() // 2, _canvas.winfo_height() // 2, image=base_tkimg,
+                                       tags='asdf')
         print(tagOrId)
 
         # Save image.png and metadata.json
@@ -186,7 +191,11 @@ if __name__ == '__main__':
     style = ttk.Style(root)
     # windows : ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative')
     # osx :
-    style.theme_use('aqua')
+    os_name = platform.system()  # Windows, Darwin, Linux
+    if os_name[0] == 'W':
+        style.theme_use('vista')
+    else:
+        style.theme_use('aqua')  # Darwin, Linux
 
     # Frame Option
     # flat, groove, raised, ridge, solid, or sunken
@@ -231,13 +240,15 @@ if __name__ == '__main__':
 
     # Image slider
     image_slider_var = tk.IntVar(make_left_frame, name='image_slider_var', value=0)
-    image_slider = ttk.Scale(make_left_frame, name='image_slider', from_=0, to=0, variable=image_slider_var, orient=tk.HORIZONTAL)
+    image_slider = ttk.Scale(make_left_frame, name='image_slider', from_=0, to=0, variable=image_slider_var,
+                             orient=tk.HORIZONTAL)
 
     image_slider.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky='ew')
 
     # name entry
     image_name_var = tk.StringVar(master=make_left_frame, name='image_name_var')
-    image_name_entry = EntryWithPlaceholder(make_left_frame, placeholder='Image name', justify=tk.LEFT, textvariable=image_name_var, font=('System', 18))
+    image_name_entry = EntryWithPlaceholder(make_left_frame, placeholder='Image name', justify=tk.LEFT,
+                                            textvariable=image_name_var, font=('System', 18))
     image_name_entry.grid(row=3, column=0, columnspan=2, padx=10, pady=10, sticky='ew')
 
     # Make description scrolled Text
@@ -256,8 +267,9 @@ if __name__ == '__main__':
 
     # number entry
     image_num_var = tk.IntVar(master=make_left_frame, name='image_num_var')
-    image_num_entry = EntryWithPlaceholder(make_left_frame, placeholder='Number', width=12, justify=tk.CENTER, textvariable=image_num_var,
-                                font=('System', 18))
+    image_num_entry = EntryWithPlaceholder(make_left_frame, placeholder='Number', width=12, justify=tk.CENTER,
+                                           textvariable=image_num_var,
+                                           font=('System', 18))
     image_num_entry.grid(row=5, column=0, padx=10, pady=10, sticky='w')
 
     # Make Button
