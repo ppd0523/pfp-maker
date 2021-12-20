@@ -123,6 +123,7 @@ def on_make(ctx):
     image_number = ctx.master.getvar('image_num_var')
     image_name = ctx.master.getvar('image_name_var')
     image_description = ctx.master.getvar('description_var')
+    container_var = ctx.master.getvar('container_var')
 
     if not isinstance(image_name, int):
         try:
@@ -165,14 +166,13 @@ def on_make(ctx):
         for trait_type, part in prod._asdict().items():
             part_img = Image.open(part.path, mode='r')
             base_img = Image.alpha_composite(base_img, part_img)
+            base_metadata['description'] = image_description
             base_metadata['attributes'].append(
                 {'trait_type': trait_type, 'trait_value': part.trait_value}
             )
         base_tkimg = ImageTk.PhotoImage(base_img)
         _canvas = ctx.master.children['product_canvas']
-        tagOrId = _canvas.create_image(_canvas.winfo_width() // 2, _canvas.winfo_height() // 2, image=base_tkimg,
-                                       tags='asdf')
-        print(tagOrId)
+        _canvas.itemconfigure(container_var, image=base_tkimg)
 
         # Save image.png and metadata.json
         base_img.save(f'{restore_path}/{i}.png')
@@ -230,7 +230,9 @@ if __name__ == '__main__':
     right_frame.pack(side=tk.LEFT, fill='y')
 
     # Canvas Widget
-    product_canvas = tk.Canvas(make_left_frame, width=300, height=300, name='product_canvas', bg='white')
+    product_canvas = tk.Canvas(make_left_frame, width=300, height=300, name='product_canvas')
+    img_container = product_canvas.create_image(300, 300)
+    container_var = tk.IntVar(name='container_var', value=img_container)
     product_canvas.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
 
     # Asset button
