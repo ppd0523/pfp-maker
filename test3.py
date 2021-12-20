@@ -1,7 +1,8 @@
-from itertools import product
+from collections import namedtuple
 
-d = [('a', 'b', 'c'), (1, 2, 3), ('aa', 'bb', 'cc')]
+Part = namedtuple('Part', ('head', 'eyes', 'mouth'))
 
-p = product(*d)
+part = Part('big', 'red', 'small')
 
-print(list(p))
+print(part._asdict())
+

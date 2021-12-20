@@ -5,13 +5,13 @@
     "attributes": [],
     "collection": {
         "name": "",
-        "family": "",
+        "family": ""
     },
     "properties":{
         "files": [
             {
                 "uri": "",
-                "type": "image/png",
+                "type": "image/png"
             }
         ],
         "category": "image",

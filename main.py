@@ -19,34 +19,8 @@ RESTORE_PREFIX = './assets'
 file_dict = None
 attribute_dict = defaultdict(list)
 selected_attributes_dict = None
-image_number = 500
+image_number = 50
 image_name = 'sample'
-metadata_template = {
-    "name": "",
-    "symbol": "",
-    "description": "",
-    "attributes": [],
-    "collection": {
-        "name": "",
-        "family": "",
-    },
-    "properties":{
-        "files": [
-            {
-                "uri": "",
-                "type": "image/png",
-            }
-        ],
-        "category": "image",
-        "creators": [
-            {
-                "address": "",
-                "verified": False,
-                "share": ""
-            }
-        ]
-    }
-}
 
 
 def on_select(event):
@@ -57,7 +31,11 @@ def on_select(event):
     print(w.get(selected_index))
 
 
-def on_load(_root):
+def on_load(ctx):
+    print(ctx)
+    ctx['state'] = tk.DISABLED
+    ctx['text'] = 'LOADED'
+
     # Init file tree
     global file_dict
     file_dict = defaultdict(list)
@@ -79,7 +57,7 @@ def on_load(_root):
     traits = []
     for directory, files in file_dict.items():
         trait = re.sub(r'^\d*_', '', directory)
-        traits.append(trait)
+        traits.append(trait)  # parsed directories
 
         for file in files:
             basename = re.sub(r'\.png$', '', file)
@@ -97,49 +75,52 @@ def on_load(_root):
 
     # Product named Tuple
     global Product
-    Product = namedtuple('Product', traits)
+    Product = namedtuple('Product', traits)  # head, eyes, mouth
 
-    _right_frame = _root.nametowidget('.make_frame.right_frame')
-    _right_frame.pack_forget()
-    _right_frame.pack()
+    # _right_frame = _root.nametowidget('.make_frame.right_frame')
+    # _right_frame.pack_forget()
+    # _right_frame.pack()
 
-    for i, (trait, attrs) in enumerate(attribute_dict.items()):
-        # Labal Frame
-        lbl_frame = ttk.LabelFrame(
-            _right_frame,
-            text=trait.capitalize(),
-            name=f'{trait}_frame',
-            relief='flat',
-            borderwidth=0,
-        )
-        lbl_frame.grid(row=i // 3, column=i % 3, pady=30, padx=15)
+    # for i, (trait, attrs) in enumerate(attribute_dict.items()):
+    #     # Labal Frame
+    #     lbl_frame = ttk.LabelFrame(
+    #         _right_frame,
+    #         text=trait.capitalize(),
+    #         name=f'{trait}_frame',
+    #         relief='flat',
+    #         borderwidth=0,
+    #     )
+    #     lbl_frame.grid(row=i // 3, column=i % 3, pady=30, padx=15)
+    #
+    #     # Entry
+    #     entry = ttk.Entry(lbl_frame, name=f'{trait}_entry', width=15)
+    #     # entry.bind('<KeyRelease>', )
+    #     entry.pack(pady=5)
+    #
+    #     # List Box
+    #     listbox = tk.Listbox(
+    #         lbl_frame,
+    #         name=f'{trait}_listbox',
+    #         font=('System', 16),
+    #         borderwidth=0,
+    #         highlightthickness=0,
+    #         width=15,
+    #         selectmode='SINGLE'
+    #     )
+    #     listbox.bind('<<ListboxSelect>>', on_select)
+    #     listbox.pack(padx=5)
+    #
+    #     [listbox.insert(tk.END, attr[0]) for attr in attrs]
 
-        # Entry
-        entry = ttk.Entry(lbl_frame, name=f'{trait}_entry', width=15)
-        # entry.bind('<KeyRelease>', )
-        entry.pack(pady=5)
 
-        # List Box
-        listbox = tk.Listbox(
-            lbl_frame,
-            name=f'{trait}_listbox',
-            font=('System', 16),
-            borderwidth=0,
-            highlightthickness=0,
-            width=15,
-            selectmode='SINGLE'
-        )
-        listbox.bind('<<ListboxSelect>>', on_select)
-        listbox.pack(padx=5)
-
-        [listbox.insert(tk.END, attr[0]) for attr in attrs]
-
-
-def on_make(_root):
+def on_make(ctx):
     global image_number
     global image_name
     global attribute_dict
     global Product
+
+    ctx['state'] = tk.DISABLED
+    ctx['text'] = 'MADE'
 
     products = []
     sampling_dict = defaultdict(list)
@@ -152,36 +133,34 @@ def on_make(_root):
         temp = {trait: values[i] for trait, values in sampling_dict.items()}
         products.append(Product(**temp))
 
-    print(len(products))
-    print(len(set(products)))
-
+    print('before: ',len(products))
+    products = list(set(products))
+    print('after: ', len(products))
     ## products는 완성품 배열
 
-    sample_path = list(attribute_dict.values())[0][0][2]
+    sample_path = products[0][0].path
     sample_img = Image.open(sample_path)
-    base_img = Image.new(size=sample_img.size, mode="RGBA")
 
     # Set restore path
     restore_path = f'{RESTORE_PREFIX}/{datetime.utcnow().strftime("%Y-%m-%d %H%M%SZ")}'
     if not os.path.exists(restore_path):
         os.makedirs(restore_path)
 
-    for i in range(image_number):
+    # Load metadata.json template
+    with open('./metadata.json', mode='r') as f:
+        metadata_template = json.load(f)
+
+    for i, prod in enumerate(products):
         base_metadata = metadata_template.copy()
+        base_img = Image.new(size=sample_img.size, mode='RGBA')
 
-        for trait, attr in product.items():
-            temp_img = Image.open(attr[i][2], mode='r')
-            base_img = Image.alpha_composite(base_img, temp_img)
-
-            base_metadata['name'] = f'{image_name} #{i+1}'
+        for trait_type, part in prod._asdict().items():
+            part_img = Image.open(part.path, mode='r')
+            base_img = Image.alpha_composite(base_img, part_img)
             base_metadata['attributes'].append(
-                {'trait_type': trait, 'value': attr[i][0]}
+                {'trait_type': trait_type, 'trait_value': part.trait_value}
             )
-
-        print(base_metadata)
-        print([v[0][:2] for v in product.values()])
         # base_tkimg = ImageTk.PhotoImage(base_img)
-
         base_img.save(f'{restore_path}/{i}.png')
         with open(f'{restore_path}/{i}.json', mode='w', encoding='utf-8') as f:
             json.dump(base_metadata, f)
@@ -208,7 +187,7 @@ if __name__ == '__main__':
     }
 
     # Make notebook
-    notebook = ttk.Notebook(root, width=root.winfo_screenwidth(), height=root.winfo_screenheight())
+    notebook = ttk.Notebook(root, name='notebook', width=root.winfo_screenwidth(), height=root.winfo_screenheight())
     notebook.pack()
 
     # Make Frame
@@ -233,17 +212,19 @@ if __name__ == '__main__':
     right_frame.pack(side=tk.LEFT, fill='y')
 
     # Canvas Widget
-    product_canvas = tk.Canvas(make_left_frame, width=500, height=500, name='product_canvas')
+    product_canvas = tk.Canvas(make_left_frame, width=500, height=500, name='make_canvas')
     product_canvas.pack()
 
-    # Load Button
-    on_load = partial(on_load, root)
-    btn_load = ttk.Button(make_center_frame, text="LOAD", command=on_load)
+    # Load assets Button
+    # on_load = partial(on_load, root)
+    # btn_load = ttk.Button(make_center_frame, name='btn_load', text="LOAD ASSETS", command=on_load)
+    btn_load = ttk.Button(make_center_frame, name='btn_load', text="LOAD ASSETS")
+    btn_load['command'] = partial(on_load, btn_load)
     btn_load.pack(padx=5, pady=10)
 
     # Make Button
-    on_make = partial(on_make, root)
-    btn_make = ttk.Button(make_center_frame, text='MAKE', command=on_make)
+    btn_make = ttk.Button(make_center_frame, name='btn_make', text='MAKE IMAGE')
+    btn_make['command'] = partial(on_make, btn_make)
     btn_make.pack(padx=5, pady=10)
 
     # Test Button
@@ -256,8 +237,6 @@ if __name__ == '__main__':
     # analysis_canvas
     analysis_canvas = tk.Canvas(analysis_frame, name='analysis_canvas', width=500, height=500)
     analysis_canvas.pack(side=tk.LEFT)
-
-    btn_load_files = ttk.Button()
 
     # App run
     root.mainloop()
