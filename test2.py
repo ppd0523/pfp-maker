@@ -39,9 +39,8 @@ if __name__ == '__main__':
 
     treeview.insert('', tk.END, values=('big', '10', 'long'))
 
-    tid = canvas.create_text(10, 10, text="hello")
 
-    canvas.delete(tid)
+    # canvas.delete(tid)
     # for e in dir(canvas):
     #     print(e)
 

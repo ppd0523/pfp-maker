@@ -4,7 +4,7 @@ import json
 import random
 from datetime import datetime
 import tkinter as tk
-import tkinter.font as tkFont
+from widget import EntryWithPlaceholder, ScrolledTextWithPlaceholder
 from tkinter import ttk
 from PIL import Image, ImageTk
 from collections import defaultdict, namedtuple
@@ -19,8 +19,6 @@ RESTORE_PREFIX = './assets'
 file_dict = None
 attribute_dict = defaultdict(list)
 selected_attributes_dict = None
-image_number = 50
-image_name = 'sample'
 
 
 def on_select(event):
@@ -32,9 +30,10 @@ def on_select(event):
 
 
 def on_load(ctx):
-    print(ctx)
     ctx['state'] = tk.DISABLED
     ctx['text'] = 'LOADED'
+
+    ctx.master.children['btn_shuffle']['state'] = tk.NORMAL
 
     # Init file tree
     global file_dict
@@ -77,10 +76,10 @@ def on_load(ctx):
     global Product
     Product = namedtuple('Product', traits)  # head, eyes, mouth
 
-    # _right_frame = _root.nametowidget('.make_frame.right_frame')
-    # _right_frame.pack_forget()
+    # _right_frame = ctx.master.master.nametowidget('.make_frame.right_frame')
+    # _right_frame
     # _right_frame.pack()
-
+    #
     # for i, (trait, attrs) in enumerate(attribute_dict.items()):
     #     # Labal Frame
     #     lbl_frame = ttk.LabelFrame(
@@ -114,13 +113,18 @@ def on_load(ctx):
 
 
 def on_make(ctx):
-    global image_number
-    global image_name
     global attribute_dict
     global Product
 
-    ctx['state'] = tk.DISABLED
-    ctx['text'] = 'MADE'
+    image_number = ctx.master.getvar('image_num_var')
+    image_name = ctx.master.getvar('image_name_var')
+    image_description = ctx.master.getvar('description_var')
+
+    if not isinstance(image_name, int):
+        try:
+            image_number = int(image_number)
+        except:
+            return
 
     products = []
     sampling_dict = defaultdict(list)
@@ -160,7 +164,12 @@ def on_make(ctx):
             base_metadata['attributes'].append(
                 {'trait_type': trait_type, 'trait_value': part.trait_value}
             )
-        # base_tkimg = ImageTk.PhotoImage(base_img)
+        base_tkimg = ImageTk.PhotoImage(base_img)
+        _canvas = ctx.master.children['product_canvas']
+        tagOrId = _canvas.create_image(_canvas.winfo_width()//2, _canvas.winfo_height()//2, image=base_tkimg, tags='asdf')
+        print(tagOrId)
+
+        # Save image.png and metadata.json
         base_img.save(f'{restore_path}/{i}.png')
         with open(f'{restore_path}/{i}.json', mode='w', encoding='utf-8') as f:
             json.dump(base_metadata, f)
@@ -170,18 +179,18 @@ def on_make(ctx):
 
 
 if __name__ == '__main__':
-    root = tk.Tk(baseName='My PFP', screenName='hello', className='Profile Picture Maker')
-    root.geometry('1280x720+100+100')
+    root = tk.Tk()
+    root.title('PFP Maker')
+    root.geometry('380x720+100+100')
 
     style = ttk.Style(root)
     # windows : ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative')
     # osx :
-    style.theme_use('alt')
-    ttk.Style().configure('Font.TLabelframe', font="50")
+    style.theme_use('aqua')
 
     # Frame Option
     # flat, groove, raised, ridge, solid, or sunken
-    frame_opt = {
+    btn_style = {
         'borderwidth': 2,
         'relief': 'solid',
     }
@@ -198,41 +207,63 @@ if __name__ == '__main__':
     analysis_frame = ttk.Frame(root, name='analysis_frame')
     notebook.add(analysis_frame, text='Analysis')
 
+    grid_opt = {
+        'padx': 10,
+        'pady': 10,
+    }
 
     # Left Frame
     make_left_frame = ttk.Frame(make_frame, name='left_frame')
-    make_left_frame.pack(side=tk.LEFT)
-
-    # Center Frame
-    make_center_frame = ttk.Frame(make_frame, name='center_frame')
-    make_center_frame.pack(side=tk.LEFT, ipadx=15)
+    make_left_frame.pack(side=tk.LEFT, fill='y')
 
     # Right Frame
     right_frame = ttk.Frame(make_frame, name='right_frame')
     right_frame.pack(side=tk.LEFT, fill='y')
 
     # Canvas Widget
-    product_canvas = tk.Canvas(make_left_frame, width=500, height=500, name='make_canvas')
-    product_canvas.pack()
+    product_canvas = tk.Canvas(make_left_frame, width=300, height=300, name='product_canvas', bg='white')
+    product_canvas.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
 
-    # Load assets Button
-    # on_load = partial(on_load, root)
-    # btn_load = ttk.Button(make_center_frame, name='btn_load', text="LOAD ASSETS", command=on_load)
-    btn_load = ttk.Button(make_center_frame, name='btn_load', text="LOAD ASSETS")
+    # Asset button
+    btn_load = ttk.Button(make_left_frame, name='btn_load', text="LOAD ASSET")
     btn_load['command'] = partial(on_load, btn_load)
-    btn_load.pack(padx=5, pady=10)
+    btn_load.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky='ew')
+
+    # Image slider
+    image_slider_var = tk.IntVar(make_left_frame, name='image_slider_var', value=0)
+    image_slider = ttk.Scale(make_left_frame, name='image_slider', from_=0, to=0, variable=image_slider_var, orient=tk.HORIZONTAL)
+
+    image_slider.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky='ew')
+
+    # name entry
+    image_name_var = tk.StringVar(master=make_left_frame, name='image_name_var')
+    image_name_entry = EntryWithPlaceholder(make_left_frame, placeholder='Image name', justify=tk.LEFT, textvariable=image_name_var, font=('System', 18))
+    image_name_entry.grid(row=3, column=0, columnspan=2, padx=10, pady=10, sticky='ew')
+
+    # Make description scrolled Text
+    description_var = tk.StringVar(master=make_left_frame, name='description_var')
+    description_text = ScrolledTextWithPlaceholder(
+        make_left_frame,
+        placeholder='description',
+        name='description_text',
+        height=4,
+        width=26,
+        font=('System', 18),
+        highlightcolor='skyblue',
+        highlightthickness=2
+    )
+    description_text.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
+
+    # number entry
+    image_num_var = tk.IntVar(master=make_left_frame, name='image_num_var')
+    image_num_entry = EntryWithPlaceholder(make_left_frame, placeholder='Number', width=12, justify=tk.CENTER, textvariable=image_num_var,
+                                font=('System', 18))
+    image_num_entry.grid(row=5, column=0, padx=10, pady=10, sticky='w')
 
     # Make Button
-    btn_make = ttk.Button(make_center_frame, name='btn_make', text='MAKE IMAGE')
+    btn_make = ttk.Button(make_left_frame, name='btn_shuffle', text='SUFFLE', state=tk.DISABLED)
     btn_make['command'] = partial(on_make, btn_make)
-    btn_make.pack(padx=5, pady=10)
-
-    # Test Button
-    def func():
-        print(root.winfo_width(), root.winfo_height())
-
-    test_btn = ttk.Button(make_center_frame, text='TEST', command=func)
-    test_btn.pack(padx=5, pady=10)
+    btn_make.grid(row=5, column=1, padx=10, pady=10, sticky='e')
 
     # analysis_canvas
     analysis_canvas = tk.Canvas(analysis_frame, name='analysis_canvas', width=500, height=500)
