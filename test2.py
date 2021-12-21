@@ -1,47 +1,25 @@
-import tkinter as tk
-from tkinter import ttk
-from functools import partial
-import pandas
+import pandas as pd
+import glob, json, re
 
 
-def on_analysis(_frame):
-    _canvas = _frame.nametowidget('.frame.canvas')
-    print(_canvas)
-    _canvas.item
+asset_path = './assets/2021-12-21 095638Z'
+files = list(glob.glob(f'{asset_path}/*.json'))
 
+data = []
+for file in files:
+    with open(file, mode='r', encoding='utf-8') as f:
+        metadata = json.load(f)
 
-if __name__ == '__main__':
-    root = tk.Tk(baseName='My PFP', screenName='hello', className='Profile Picture Maker')
-    root.geometry('1280x720+100+100')
+    search = re.search(r'[\/](\d+.json)', file)
+    if not search:
+        continue
 
-    style = ttk.Style(root)
-    style.theme_use('aqua')
+    basename = search.group(1)
+    temp = {'file': basename, 'name': metadata['name']}
 
-    frame = ttk.Frame(root, name='frame')
-    frame.grid()
+    for attr_obj in metadata['attributes']:
+        temp[('attribute', attr_obj['trait_type'])] = attr_obj['value']
 
-    canvas = tk.Canvas(frame, name='canvas', width=500, height=500)
-    canvas.grid()
+    data.append(temp)
 
-    btn = ttk.Button(frame, text='Analysis', name='btn', command=partial(on_analysis, frame))
-    btn.grid()
-
-    treeview = ttk.Treeview(frame, columns=['1', '2', '3'], displaycolumns=['1', '2', '3'])
-    treeview.grid(row=0, column=1)
-    treeview.column('#0', width=0, stretch=tk.OFF)
-    treeview.column('1', anchor=tk.CENTER)
-    treeview.column('2', anchor=tk.CENTER)
-    treeview.column('3', anchor=tk.CENTER)
-    treeview.heading('#0', text='index', anchor=tk.W)
-    treeview.heading('1', text='head', anchor=tk.W)
-    treeview.heading('2', text='number', anchor=tk.W)
-    treeview.heading('3', text='leg', anchor=tk.W)
-
-    treeview.insert('', tk.END, values=('big', '10', 'long'))
-
-
-    # canvas.delete(tid)
-    # for e in dir(canvas):
-    #     print(e)
-
-    root.mainloop()
+df = pd.DataFrame(data=data)

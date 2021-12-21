@@ -1,3 +1,4 @@
+import glob
 import os, sys, platform
 
 if getattr(sys, 'frozen', False):
@@ -7,14 +8,19 @@ else:
 
 os.chdir(os.path.dirname(os.path.abspath(_path)))
 import re, json, random
-from datetime import datetime
 import tkinter as tk
-from widget import EntryWithPlaceholder, ScrolledTextWithPlaceholder
-from tkinter import ttk
+from tkinter import ttk, filedialog
 from PIL import Image, ImageTk
 from collections import defaultdict, namedtuple
+from datetime import datetime
 from functools import partial
+from util import *
+from widget import EntryWithPlaceholder, ScrolledTextWithPlaceholder
+import pandas as pd
+from pandastable import Table
 
+
+img_list = []
 Product = None
 Part = namedtuple('Part', ('trait_value', 'weight', 'path'))
 
@@ -22,15 +28,53 @@ PATH_PREFIX = './traits'
 RESTORE_PREFIX = './assets'
 file_dict = None
 attribute_dict = defaultdict(list)
-selected_attributes_dict = None
+
+
+def on_choose(ctx):
+    asset_path = filedialog.askdirectory(initialdir=RESTORE_PREFIX)
+    files = list(glob.glob(f'{asset_path}/*.json'))
+
+    data = []
+    for file in files:
+        with open(file, mode='r', encoding='utf-8') as f:
+            metadata = json.load(f)
+
+        search = re.search(r'[\/](\d+.json)', file)
+        if not search:
+            continue
+
+        basename = search.group(1)
+        temp = {'file': basename, 'name': metadata['name']}
+
+        for attr_obj in metadata['attributes']:
+            temp[attr_obj['trait_type']] = attr_obj['value']
+
+        data.append(temp)
+
+    df = pd.DataFrame(data=data)
+
+    frame = ctx.master.nametowidget('.analysis_frame.table_frame')
+    table_opt = {'fontsize': 20}
+    pt = Table(frame, dataframe=df, width=frame.winfo_width())
+    pt.show()
+
+
+
+def on_slide(ctx, pos):
+    global img_list
+    try:
+        pos = round(float(pos))
+    except Exception as e:
+        return
+
+    container_var = ctx.master.getvar('container_var')
+    _canvas = ctx.master.nametowidget('.make_frame.left_frame.product_canvas')
+    _canvas.itemconfig(container_var, image=img_list[pos])
 
 
 def on_select(event):
     w = event.widget
-    global selected_attributes_dict
-
     selected_index = w.curselection()[0]
-    print(w.get(selected_index))
 
 
 def on_load(ctx):
@@ -122,8 +166,9 @@ def on_make(ctx):
 
     image_number = ctx.master.getvar('image_num_var')
     image_name = ctx.master.getvar('image_name_var')
+    image_symbol = ctx.master.getvar('image_symbol_var')
     image_description = ctx.master.getvar('description_var')
-    container_var = ctx.master.getvar('container_var')
+    container = ctx.master.getvar('container_var')
 
     if not isinstance(image_name, int):
         try:
@@ -142,9 +187,7 @@ def on_make(ctx):
         temp = {trait: values[i] for trait, values in sampling_dict.items()}
         products.append(Product(**temp))
 
-    print('before: ', len(products))
     products = list(set(products))
-    print('after: ', len(products))
     ## products는 완성품 배열
 
     sample_path = products[0][0].path
@@ -159,6 +202,16 @@ def on_make(ctx):
     with open('./metadata.json', mode='r') as f:
         metadata_template = json.load(f)
 
+    # Set slider, canvas
+    _left_frame = ctx.master.master.nametowidget('.make_frame.left_frame')
+    _canvas = _left_frame.children['product_canvas']
+    _slider = _left_frame.children['image_slider']
+    _slider['to'] = len(products)-1
+    if _slider['to'] < 0:
+        _slider['to'] = 0
+    _slider['state'] = tk.NORMAL
+
+    global img_list
     for i, prod in enumerate(products):
         base_metadata = metadata_template.copy()
         base_img = Image.new(size=sample_img.size, mode='RGBA')
@@ -166,31 +219,35 @@ def on_make(ctx):
         for trait_type, part in prod._asdict().items():
             part_img = Image.open(part.path, mode='r')
             base_img = Image.alpha_composite(base_img, part_img)
+            base_metadata['name'] = f'{image_name} #{i+1}'
+            base_metadata['symbol'] = image_symbol
             base_metadata['description'] = image_description
             base_metadata['attributes'].append(
-                {'trait_type': trait_type, 'trait_value': part.trait_value}
+                {'trait_type': trait_type, 'value': part.trait_value}
             )
-        base_tkimg = ImageTk.PhotoImage(base_img)
-        _canvas = ctx.master.children['product_canvas']
-        _canvas.itemconfigure(container_var, image=base_tkimg)
+
+        base_tkimg = ImageTk.PhotoImage(base_img.resize(size=(int(_canvas['width'])-20, int(_canvas['height'])-20)))
+        img_list.append(base_tkimg)
+        _canvas.itemconfig(container, image=img_list[-1])
 
         # Save image.png and metadata.json
         base_img.save(f'{restore_path}/{i}.png')
         with open(f'{restore_path}/{i}.json', mode='w', encoding='utf-8') as f:
             json.dump(base_metadata, f)
 
-        # todo
-        ## base_tkimg 만들기
+    result_var.set('Success! [{:4d}/{:4d}]'.format(len(products), image_number))
 
 
 if __name__ == '__main__':
     root = tk.Tk()
     root.title('PFP Maker')
-    root.geometry('380x720+100+100')
+    root.configure(bg=Color.white)
+    root.geometry('820x820+100+100')
+    root.resizable(True, True)
 
     style = ttk.Style(root)
     # windows : ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative')
-    # osx :
+    # osx : ('aqua', 'clam', 'alt', 'default', 'classic')
     os_name = platform.system()  # Windows, Darwin, Linux
     if os_name[0] == 'W':
         style.theme_use('vista')
@@ -199,30 +256,22 @@ if __name__ == '__main__':
 
     # Frame Option
     # flat, groove, raised, ridge, solid, or sunken
-    btn_style = {
-        'borderwidth': 2,
-        'relief': 'solid',
-    }
 
     # Make notebook
     notebook = ttk.Notebook(root, name='notebook', width=root.winfo_screenwidth(), height=root.winfo_screenheight())
     notebook.pack()
 
     # Make Frame
-    make_frame = ttk.Frame(root, name='make_frame')
+    make_frame = tk.Frame(root, name='make_frame')
+    # make_frame.config(background=Color.WHITE)
     notebook.add(make_frame, text='MAKE')
 
     # Analysis Frame
-    analysis_frame = ttk.Frame(root, name='analysis_frame')
+    analysis_frame = tk.Frame(root, name='analysis_frame')
     notebook.add(analysis_frame, text='Analysis')
 
-    grid_opt = {
-        'padx': 10,
-        'pady': 10,
-    }
-
     # Left Frame
-    make_left_frame = ttk.Frame(make_frame, name='left_frame')
+    make_left_frame = tk.Frame(make_frame, name='left_frame')
     make_left_frame.pack(side=tk.LEFT, fill='y')
 
     # Right Frame
@@ -230,33 +279,44 @@ if __name__ == '__main__':
     right_frame.pack(side=tk.LEFT, fill='y')
 
     # Canvas Widget
-    product_canvas = tk.Canvas(make_left_frame, width=300, height=300, name='product_canvas')
-    img_container = product_canvas.create_image(300, 300)
+    product_canvas = tk.Canvas(make_left_frame, width=420, height=420, name='product_canvas')
+    empty_img = Image.new(mode='RGBA', size=(400, 400))
+    empty_tkimg = ImageTk.PhotoImage(empty_img)
+    w, h = int(product_canvas['width']), int(product_canvas['height'])
+    img_container = product_canvas.create_image(w//2, h//2, image=empty_tkimg)
     container_var = tk.IntVar(name='container_var', value=img_container)
-    product_canvas.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
-
-    # Asset button
-    btn_load = ttk.Button(make_left_frame, name='btn_load', text="LOAD ASSET")
-    btn_load['command'] = partial(on_load, btn_load)
-    btn_load.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky='ew')
+    product_canvas.pack(padx=10, pady=5, fill='both')
 
     # Image slider
     image_slider_var = tk.IntVar(make_left_frame, name='image_slider_var', value=0)
+    # sliderrelief : flat, groove, raised, ridge, solid, or sunken
+    # relief = : flat, groove, raised, ridge, solid, or sunken
     image_slider = ttk.Scale(make_left_frame, name='image_slider', from_=0, to=0, variable=image_slider_var,
-                             orient=tk.HORIZONTAL)
+                             orient=tk.HORIZONTAL, state=tk.DISABLED)
+    image_slider['command'] = partial(on_slide, image_slider)
+    image_slider.pack(padx=10, pady=5, fill='x')
 
-    image_slider.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky='ew')
+    # Asset button
+    btn_load = ttk.Button(right_frame, name='btn_load', text="LOAD ASSET")
+    btn_load['command'] = partial(on_load, btn_load)
+    btn_load.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky='ew')
 
     # name entry
-    image_name_var = tk.StringVar(master=make_left_frame, name='image_name_var')
-    image_name_entry = EntryWithPlaceholder(make_left_frame, placeholder='Image name', justify=tk.LEFT,
+    image_name_var = tk.StringVar(master=right_frame, name='image_name_var')
+    image_name_entry = EntryWithPlaceholder(right_frame, placeholder='Image name', justify=tk.LEFT,
                                             textvariable=image_name_var, font=('System', 18))
-    image_name_entry.grid(row=3, column=0, columnspan=2, padx=10, pady=10, sticky='ew')
+    image_name_entry.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky='ew')
+
+    # symbol entry
+    image_symbol_var = tk.StringVar(master=right_frame, name='image_symbol_var')
+    image_symbol_entry = EntryWithPlaceholder(right_frame, placeholder='symbol', justify=tk.LEFT,
+                                              textvariable=image_symbol_var, font=('System', 18))
+    image_symbol_entry.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky='ew')
 
     # Make description scrolled Text
-    description_var = tk.StringVar(master=make_left_frame, name='description_var')
+    description_var = tk.StringVar(master=right_frame, name='description_var')
     description_text = ScrolledTextWithPlaceholder(
-        make_left_frame,
+        right_frame,
         placeholder='description',
         name='description_text',
         height=4,
@@ -265,23 +325,37 @@ if __name__ == '__main__':
         highlightcolor='skyblue',
         highlightthickness=2
     )
-    description_text.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
+    description_text.grid(row=3, column=0, columnspan=2, padx=10, pady=5, sticky='ew')
 
-    # number entry
-    image_num_var = tk.IntVar(master=make_left_frame, name='image_num_var')
-    image_num_entry = EntryWithPlaceholder(make_left_frame, placeholder='Number', width=12, justify=tk.CENTER,
+    # Number entry
+    image_num_var = tk.IntVar(master=right_frame, name='image_num_var')
+    image_num_entry = EntryWithPlaceholder(right_frame, placeholder='Number', width=7, justify=tk.CENTER,
                                            textvariable=image_num_var,
                                            font=('System', 18))
-    image_num_entry.grid(row=5, column=0, padx=10, pady=10, sticky='w')
+    image_num_entry.grid(row=4, column=0, padx=10, pady=5, sticky='w')
 
-    # Make Button
-    btn_make = ttk.Button(make_left_frame, name='btn_shuffle', text='SUFFLE', state=tk.DISABLED)
-    btn_make['command'] = partial(on_make, btn_make)
-    btn_make.grid(row=5, column=1, padx=10, pady=10, sticky='e')
+    # Suffle Button
+    btn_shuffle = ttk.Button(right_frame, name='btn_shuffle', text='SUFFLE', state=tk.DISABLED)
+    btn_shuffle['command'] = partial(on_make, btn_shuffle)
+    btn_shuffle.grid(row=4, column=1, padx=10, pady=5, sticky='e')
+
+    # Result label
+    result_var = tk.StringVar(master=right_frame, name='result_var', value='')
+    result_label = ttk.Label(master=right_frame, name='result_label', textvariable=result_var)
+    result_label.grid(row=5, column=0, columnspan=2, padx=10, pady=5, sticky='we')
 
     # analysis_canvas
-    analysis_canvas = tk.Canvas(analysis_frame, name='analysis_canvas', width=500, height=500)
-    analysis_canvas.pack(side=tk.LEFT)
+    # analysis_canvas = tk.Canvas(analysis_frame, name='analysis_canvas', width=420, height=420)
+    # analysis_canvas.pack(side=tk.LEFT)
+
+    # Choose Button
+    btn_choose = ttk.Button(analysis_frame, text='CHOOSE ASSET')
+    btn_choose['command'] = partial(on_choose, btn_choose)
+    btn_choose.pack(fill='x', pady=20)
+
+    # Table frame
+    table_frame = ttk.Frame(analysis_frame, name='table_frame')
+    table_frame.pack(fill='both')
 
     # App run
     root.mainloop()

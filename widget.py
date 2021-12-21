@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 import tkinter.scrolledtext as tkst
 
 
@@ -15,13 +16,13 @@ class EntryWithPlaceholder(tk.Entry):
 
         self.put_placeholder()
 
-    def put_placeholder(self):
+    def put_placeholder(self, *args):
         self.insert(0, self.placeholder)
         self['fg'] = self.placeholder_color
 
     def foc_in(self, *args):
         if self['fg'] == self.placeholder_color:
-            self.delete('0', 'end')
+            self.delete(0, 'end')
             self['fg'] = self.default_fg_color
 
     def foc_out(self, *args):
