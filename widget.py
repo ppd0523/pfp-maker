@@ -30,7 +30,8 @@ class EntryWithPlaceholder(tk.Entry):
             self.put_placeholder()
 
 
-class ScrolledTextWithPlaceholder(tkst.ScrolledText):
+# class ScrolledTextWithPlaceholder(tkst.ScrolledText):
+class ScrolledTextWithPlaceholder(tk.Text):
     def __init__(self, master=None, placeholder="PLACEHOLDER", color='grey', **kwargs):
         super().__init__(master, **kwargs)
 

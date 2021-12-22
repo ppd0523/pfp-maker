@@ -2,7 +2,7 @@ import glob
 import os, sys, platform
 
 if getattr(sys, 'frozen', False):
-    _path = sys.excutable
+    _path = sys.executable
 else:
     _path = __file__
 
@@ -54,9 +54,13 @@ def on_choose(ctx):
     df = pd.DataFrame(data=data)
 
     frame = ctx.master.nametowidget('.analysis_frame.table_frame')
-    table_opt = {'fontsize': 20}
-    pt = Table(frame, dataframe=df, width=frame.winfo_width())
-    pt.show()
+    if '!table' not in frame.keys():
+        pt = Table(frame, dataframe=df, width=frame.winfo_width(), showstatusbar=True, enable_menus=True, editable=True)
+        pt.show()
+    else:
+        pt = frame.nametowidget('.analysis_frame.table_frame.!table')
+
+    pt.redraw()
 
 
 
@@ -81,8 +85,9 @@ def on_load(ctx):
     ctx['state'] = tk.DISABLED
     ctx['text'] = 'LOADED'
 
-    ctx.master.children['btn_shuffle']['state'] = tk.NORMAL
+    print(ctx.master.children)
 
+    ctx.master.children['shuffle_label_frame'].children['btn_shuffle']['state'] = tk.NORMAL
     # Init file tree
     global file_dict
     file_dict = defaultdict(list)
@@ -199,7 +204,7 @@ def on_make(ctx):
         os.makedirs(restore_path)
 
     # Load metadata.json template
-    with open('./metadata.json', mode='r') as f:
+    with open('./base_metadata.json', mode='r') as f:
         metadata_template = json.load(f)
 
     # Set slider, canvas
@@ -235,14 +240,15 @@ def on_make(ctx):
         with open(f'{restore_path}/{i}.json', mode='w', encoding='utf-8') as f:
             json.dump(base_metadata, f)
 
-    result_var.set('Success! [{:4d}/{:4d}]'.format(len(products), image_number))
+    msg = '{:d} created uniquely'.format(len(products))
+    result_var.set(msg)
 
 
 if __name__ == '__main__':
     root = tk.Tk()
     root.title('PFP Maker')
     root.configure(bg=Color.white)
-    root.geometry('820x820+100+100')
+    root.geometry('820x540+100+100')
     root.resizable(True, True)
 
     style = ttk.Style(root)
@@ -255,6 +261,10 @@ if __name__ == '__main__':
         style.theme_use('aqua')  # Darwin, Linux
 
     # Frame Option
+    frame_opt = {
+        'padx': 10,
+        'pady': 5,
+    }
     # flat, groove, raised, ridge, solid, or sunken
 
     # Make notebook
@@ -268,15 +278,15 @@ if __name__ == '__main__':
 
     # Analysis Frame
     analysis_frame = tk.Frame(root, name='analysis_frame')
-    notebook.add(analysis_frame, text='Analysis')
+    notebook.add(analysis_frame, text='ANALYSIS')
 
     # Left Frame
     make_left_frame = tk.Frame(make_frame, name='left_frame')
-    make_left_frame.pack(side=tk.LEFT, fill='y')
+    make_left_frame.pack(side=tk.LEFT, fill=tk.Y)
 
     # Right Frame
     right_frame = ttk.Frame(make_frame, name='right_frame')
-    right_frame.pack(side=tk.LEFT, fill='y')
+    right_frame.pack(side=tk.LEFT, fill=tk.Y)
 
     # Canvas Widget
     product_canvas = tk.Canvas(make_left_frame, width=420, height=420, name='product_canvas')
@@ -285,7 +295,7 @@ if __name__ == '__main__':
     w, h = int(product_canvas['width']), int(product_canvas['height'])
     img_container = product_canvas.create_image(w//2, h//2, image=empty_tkimg)
     container_var = tk.IntVar(name='container_var', value=img_container)
-    product_canvas.pack(padx=10, pady=5, fill='both')
+    product_canvas.pack(padx=10, pady=5, fill=tk.BOTH)
 
     # Image slider
     image_slider_var = tk.IntVar(make_left_frame, name='image_slider_var', value=0)
@@ -297,21 +307,27 @@ if __name__ == '__main__':
     image_slider.pack(padx=10, pady=5, fill='x')
 
     # Asset button
-    btn_load = ttk.Button(right_frame, name='btn_load', text="LOAD ASSET")
+    btn_load = ttk.Button(right_frame, name='btn_load', text="LOAD TRAIT")
     btn_load['command'] = partial(on_load, btn_load)
-    btn_load.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky='ew')
+    btn_load.pack(fill=tk.X, **frame_opt)
 
     # name entry
     image_name_var = tk.StringVar(master=right_frame, name='image_name_var')
     image_name_entry = EntryWithPlaceholder(right_frame, placeholder='Image name', justify=tk.LEFT,
                                             textvariable=image_name_var, font=('System', 18))
-    image_name_entry.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky='ew')
+    image_name_entry.pack(fill=tk.X, **frame_opt)
 
     # symbol entry
     image_symbol_var = tk.StringVar(master=right_frame, name='image_symbol_var')
     image_symbol_entry = EntryWithPlaceholder(right_frame, placeholder='symbol', justify=tk.LEFT,
                                               textvariable=image_symbol_var, font=('System', 18))
-    image_symbol_entry.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky='ew')
+    image_symbol_entry.pack(fill=tk.X, **frame_opt)
+
+    # collection entry
+    image_collection_var = tk.StringVar(master=right_frame, name='image_collection_var')
+    image_collection_entry = EntryWithPlaceholder(right_frame, placeholder='collection family', justify=tk.LEFT,
+                                              textvariable=image_collection_var, font=('System', 18))
+    image_collection_entry.pack(fill=tk.X, **frame_opt)
 
     # Make description scrolled Text
     description_var = tk.StringVar(master=right_frame, name='description_var')
@@ -325,37 +341,37 @@ if __name__ == '__main__':
         highlightcolor='skyblue',
         highlightthickness=2
     )
-    description_text.grid(row=3, column=0, columnspan=2, padx=10, pady=5, sticky='ew')
+    description_text.pack(fill=tk.X, **frame_opt)
+
+    # Suffle Label frame
+    suffle_label_frame = ttk.Labelframe(right_frame, name='shuffle_label_frame', text='Number of Shuffling', height=100)
+    suffle_label_frame.pack(fill=tk.BOTH, **frame_opt)
 
     # Number entry
-    image_num_var = tk.IntVar(master=right_frame, name='image_num_var')
-    image_num_entry = EntryWithPlaceholder(right_frame, placeholder='Number', width=7, justify=tk.CENTER,
+    image_num_var = tk.IntVar(master=suffle_label_frame, name='image_num_var')
+    image_num_entry = EntryWithPlaceholder(suffle_label_frame, placeholder='number', width=7, justify=tk.CENTER,
                                            textvariable=image_num_var,
                                            font=('System', 18))
-    image_num_entry.grid(row=4, column=0, padx=10, pady=5, sticky='w')
+    image_num_entry.place(width=130, anchor=tk.NW)
 
     # Suffle Button
-    btn_shuffle = ttk.Button(right_frame, name='btn_shuffle', text='SUFFLE', state=tk.DISABLED)
+    btn_shuffle = ttk.Button(master=suffle_label_frame, name='btn_shuffle', text='SUFFLE', state=tk.DISABLED)
     btn_shuffle['command'] = partial(on_make, btn_shuffle)
-    btn_shuffle.grid(row=4, column=1, padx=10, pady=5, sticky='e')
+    btn_shuffle.place(anchor=tk.NW, x=150, width=130)
 
     # Result label
-    result_var = tk.StringVar(master=right_frame, name='result_var', value='')
-    result_label = ttk.Label(master=right_frame, name='result_label', textvariable=result_var)
-    result_label.grid(row=5, column=0, columnspan=2, padx=10, pady=5, sticky='we')
-
-    # analysis_canvas
-    # analysis_canvas = tk.Canvas(analysis_frame, name='analysis_canvas', width=420, height=420)
-    # analysis_canvas.pack(side=tk.LEFT)
+    result_var = tk.StringVar(master=suffle_label_frame, name='result_var', value='')
+    result_label = ttk.Label(master=suffle_label_frame, name='result_label', textvariable=result_var)
+    result_label.place(relx=0.3, y=45)
 
     # Choose Button
     btn_choose = ttk.Button(analysis_frame, text='CHOOSE ASSET')
     btn_choose['command'] = partial(on_choose, btn_choose)
-    btn_choose.pack(fill='x', pady=20)
+    btn_choose.pack(fill='x', **frame_opt)
 
     # Table frame
     table_frame = ttk.Frame(analysis_frame, name='table_frame')
-    table_frame.pack(fill='both')
+    table_frame.pack(fill=tk.BOTH, expand=True)
 
     # App run
     root.mainloop()

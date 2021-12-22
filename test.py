@@ -1,13 +1,7 @@
-import pandas as pd
+a = [1, 2, 3, 4]
 
-data = {
-    'A': [1, 2, 3],
-    ('B', 'aa'): [10, 20, 30],
-    ('B', 'bb'): [100, 200, 300],
-}
+if 1 not in a:
+    print('hello')
 
-df = pd.DataFrame(data=data)
-
-
-print(df.head())
-
+else:
+    print('world')
