@@ -3,10 +3,8 @@
     "symbol": "",
     "description": "",
     "attributes": [],
-    "collection": {
-        "name": "",
-        "family": ""
-    },
+    "image": "",
+    "seller_fee_basis_points": 3,
     "properties":{
         "files": [
             {

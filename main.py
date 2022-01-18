@@ -85,8 +85,6 @@ def on_load(ctx):
     ctx['state'] = tk.DISABLED
     ctx['text'] = 'LOADED'
 
-    print(ctx.master.children)
-
     ctx.master.children['shuffle_label_frame'].children['btn_shuffle']['state'] = tk.NORMAL
     # Init file tree
     global file_dict
@@ -199,7 +197,7 @@ def on_make(ctx):
     sample_img = Image.open(sample_path)
 
     # Set restore path
-    restore_path = f'{RESTORE_PREFIX}/{datetime.utcnow().strftime("%Y-%m-%d %H%M%SZ")}'
+    restore_path = f'{RESTORE_PREFIX}/{datetime.utcnow().strftime("%Y-%m-%d_%H%M%SZ")}'
     if not os.path.exists(restore_path):
         os.makedirs(restore_path)
 
@@ -221,12 +219,15 @@ def on_make(ctx):
         base_metadata = metadata_template.copy()
         base_img = Image.new(size=sample_img.size, mode='RGBA')
 
+        base_metadata['attributes'] = []
         for trait_type, part in prod._asdict().items():
             part_img = Image.open(part.path, mode='r')
             base_img = Image.alpha_composite(base_img, part_img)
             base_metadata['name'] = f'{image_name} #{i+1}'
             base_metadata['symbol'] = image_symbol
+            base_metadata['image'] = f"{i}.png"
             base_metadata['description'] = image_description
+            base_metadata['properties']['files'][0]['uri'] = f'{i}.png'
             base_metadata['attributes'].append(
                 {'trait_type': trait_type, 'value': part.trait_value}
             )
